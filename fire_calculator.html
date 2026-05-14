@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canadian FIRE Calculator</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f6f7f9;
+    color: #1f2937;
+    line-height: 1.45;
+  }
+  .container { max-width: 1400px; margin: 0 auto; }
+  header { margin-bottom: 24px; }
+  h1 { margin: 0 0 4px; font-size: 28px; font-weight: 700; }
+  .subtitle { color: #6b7280; font-size: 14px; }
+
+  .layout { display: grid; grid-template-columns: 420px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
+
+  .card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.04);
+    margin-bottom: 16px;
+  }
+  .card h2 { margin: 0 0 14px; font-size: 16px; font-weight: 600; }
+  .card h3 { margin: 16px 0 8px; font-size: 13px; font-weight: 600; color: #4b5563; text-transform: uppercase; letter-spacing: 0.04em; }
+
+  fieldset { border: none; padding: 0; margin: 0 0 14px; }
+  legend { font-size: 13px; font-weight: 600; color: #111827; margin-bottom: 8px; padding: 0; }
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field.full { grid-column: 1 / -1; }
+  .field label { font-size: 12px; color: #6b7280; font-weight: 500; }
+  .field input, .field select {
+    padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;
+    background: white; color: #111827; font-variant-numeric: tabular-nums;
+  }
+  .field input:focus, .field select:focus { outline: 2px solid #2563eb; outline-offset: -1px; border-color: #2563eb; }
+  .partner-tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-right: 6px; }
+  .partner-1-tag { background: #dbeafe; color: #1d4ed8; }
+  .partner-2-tag { background: #fce7f3; color: #be185d; }
+
+  button.primary {
+    background: #111827; color: white; border: none; border-radius: 8px;
+    padding: 11px 16px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%;
+    transition: background 0.1s ease;
+  }
+  button.primary:hover { background: #1f2937; }
+  button.secondary {
+    background: white; color: #374151; border: 1px solid #d1d5db; border-radius: 8px;
+    padding: 9px 14px; font-size: 13px; font-weight: 500; cursor: pointer;
+  }
+  button.secondary:hover { background: #f9fafb; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .kpi { background: #f9fafb; border-radius: 8px; padding: 14px; }
+  .kpi .label { color: #6b7280; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+  .kpi .value { font-size: 22px; font-weight: 700; color: #111827; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .kpi .sub { color: #6b7280; font-size: 11px; margin-top: 2px; }
+  .kpi.success .value { color: #047857; }
+  .kpi.warning .value { color: #b45309; }
+  .kpi.danger .value { color: #b91c1c; }
+
+  .chart-container { position: relative; height: 360px; }
+  .chart-container.tall { height: 380px; }
+
+  .scroll-table { overflow-x: auto; max-height: 480px; overflow-y: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+  th { text-align: right; padding: 8px 6px; border-bottom: 2px solid #e5e7eb; color: #4b5563; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; position: sticky; top: 0; background: white; z-index: 1; }
+  th:first-child, td:first-child { text-align: left; }
+  td { padding: 6px; border-bottom: 1px solid #f3f4f6; text-align: right; }
+  tr:hover td { background: #fafbfc; }
+  td.depleted { color: #b91c1c; font-weight: 600; }
+  td.label { font-weight: 500; }
+
+  .toggle-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .toggle-row button { font-size: 12px; padding: 6px 10px; }
+  .toggle-row button.active { background: #111827; color: white; border-color: #111827; }
+
+  .note { background: #fffbeb; border: 1px solid #fde68a; color: #78350f; padding: 10px 12px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
+  .note strong { color: #92400e; }
+  .footer-note { color: #9ca3af; font-size: 11px; margin-top: 16px; }
+  details { margin-top: 8px; }
+  summary { cursor: pointer; font-size: 12px; color: #6b7280; font-weight: 500; }
+  details[open] summary { margin-bottom: 8px; }
+  .help { font-size: 11px; color: #9ca3af; font-style: italic; }
+
+  .empty-state { padding: 60px 20px; text-align: center; color: #9ca3af; }
+  .empty-state .big { font-size: 40px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Canadian FIRE Calculator</h1>
+    <div class="subtitle">Project two-partner household balances over time with tax-efficient withdrawals. All amounts in CAD (today's dollars or nominal — toggle below the chart).</div>
+  </header>
+
+  <div class="layout">
+    <!-- Inputs -->
+    <div>
+      <div class="card">
+        <h2>Household</h2>
+        <div class="field-grid">
+          <div class="field">
+            <label>Province</label>
+            <select id="province">
+              <option value="ON" selected>Ontario</option>
+              <option value="BC">British Columbia</option>
+              <option value="AB">Alberta</option>
+              <option value="QC">Quebec</option>
+              <option value="MB">Manitoba</option>
+              <option value="SK">Saskatchewan</option>
+              <option value="NS">Nova Scotia</option>
+              <option value="NB">New Brunswick</option>
+              <option value="NL">Newfoundland & Labrador</option>
+              <option value="PE">Prince Edward Island</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Annual household spending ($/yr today)</label>
+            <input type="number" id="spend" value="80000" step="1000">
+          </div>
+          <div class="field">
+            <label>Expected inflation rate (%)</label>
+            <input type="number" id="inflation" value="2.5" step="0.1">
+          </div>
+          <div class="field">
+            <label>Expected annual return (%)</label>
+            <input type="number" id="returnRate" value="6.0" step="0.1">
+          </div>
+          <div class="field">
+            <label>Other annual income today ($/yr)</label>
+            <input type="number" id="otherIncome" value="0" step="500">
+          </div>
+          <div class="field">
+            <label>Other income inflation-adjusted?</label>
+            <select id="otherInflate">
+              <option value="1" selected>Yes (e.g. rental)</option>
+              <option value="0">No (fixed)</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label>Withdrawal strategy</label>
+            <select id="strategy">
+              <option value="meltdown" selected>RRSP meltdown — drain RRSPs early to limit OAS clawback (recommended)</option>
+              <option value="nonreg-first">Non-registered first, then RRSP, then TFSA</option>
+              <option value="proportional">Proportional across all accounts</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2><span class="partner-tag partner-1-tag">P1</span> Partner 1</h2>
+        <div class="field-grid">
+          <div class="field"><label>Name</label><input type="text" id="p1_name" value="Partner 1"></div>
+          <div class="field"><label>Current age</label><input type="number" id="p1_age" value="40" min="18" max="100"></div>
+          <div class="field"><label>Retirement age</label><input type="number" id="p1_retire" value="55" min="30" max="100"></div>
+          <div class="field"><label>Life expectancy</label><input type="number" id="p1_death" value="90" min="60" max="110"></div>
+          <div class="field"><label>Salary today ($/yr)</label><input type="number" id="p1_salary" value="100000" step="1000"></div>
+          <div class="field"><label>Salary growth (%/yr)</label><input type="number" id="p1_sgrowth" value="2.5" step="0.1"></div>
+          <div class="field"><label>RRSP balance ($)</label><input type="number" id="p1_rrsp" value="150000" step="1000"></div>
+          <div class="field"><label>TFSA balance ($)</label><input type="number" id="p1_tfsa" value="50000" step="1000"></div>
+          <div class="field"><label>Non-registered ($)</label><input type="number" id="p1_nonreg" value="30000" step="1000"></div>
+          <div class="field"><label>Non-reg cost basis ($)</label><input type="number" id="p1_acb" value="25000" step="1000"></div>
+          <div class="field"><label>RRSP contribution ($/yr)</label><input type="number" id="p1_rrspContrib" value="10000" step="500"></div>
+          <div class="field"><label>TFSA contribution ($/yr)</label><input type="number" id="p1_tfsaContrib" value="7000" step="500"></div>
+          <div class="field"><label>Annual CPP at 65 today ($)</label><input type="number" id="p1_cpp" value="14000" step="100"></div>
+          <div class="field"><label>Annual OAS at 65 today ($)</label><input type="number" id="p1_oas" value="8500" step="100"></div>
+          <div class="field"><label>CPP start age</label><input type="number" id="p1_cppAge" value="65" min="60" max="70"></div>
+          <div class="field"><label>OAS start age</label><input type="number" id="p1_oasAge" value="65" min="65" max="70"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2><span class="partner-tag partner-2-tag">P2</span> Partner 2</h2>
+        <div class="field-grid">
+          <div class="field"><label>Name</label><input type="text" id="p2_name" value="Partner 2"></div>
+          <div class="field"><label>Current age</label><input type="number" id="p2_age" value="40" min="18" max="100"></div>
+          <div class="field"><label>Retirement age</label><input type="number" id="p2_retire" value="55" min="30" max="100"></div>
+          <div class="field"><label>Life expectancy</label><input type="number" id="p2_death" value="92" min="60" max="110"></div>
+          <div class="field"><label>Salary today ($/yr)</label><input type="number" id="p2_salary" value="80000" step="1000"></div>
+          <div class="field"><label>Salary growth (%/yr)</label><input type="number" id="p2_sgrowth" value="2.5" step="0.1"></div>
+          <div class="field"><label>RRSP balance ($)</label><input type="number" id="p2_rrsp" value="120000" step="1000"></div>
+          <div class="field"><label>TFSA balance ($)</label><input type="number" id="p2_tfsa" value="50000" step="1000"></div>
+          <div class="field"><label>Non-registered ($)</label><input type="number" id="p2_nonreg" value="20000" step="1000"></div>
+          <div class="field"><label>Non-reg cost basis ($)</label><input type="number" id="p2_acb" value="15000" step="1000"></div>
+          <div class="field"><label>RRSP contribution ($/yr)</label><input type="number" id="p2_rrspContrib" value="8000" step="500"></div>
+          <div class="field"><label>TFSA contribution ($/yr)</label><input type="number" id="p2_tfsaContrib" value="7000" step="500"></div>
+          <div class="field"><label>Annual CPP at 65 today ($)</label><input type="number" id="p2_cpp" value="12000" step="100"></div>
+          <div class="field"><label>Annual OAS at 65 today ($)</label><input type="number" id="p2_oas" value="8500" step="100"></div>
+          <div class="field"><label>CPP start age</label><input type="number" id="p2_cppAge" value="65" min="60" max="70"></div>
+          <div class="field"><label>OAS start age</label><input type="number" id="p2_oasAge" value="65" min="65" max="70"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <button class="primary" id="calcBtn">Calculate projection</button>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div>
+      <div class="card" id="resultsCard">
+        <div class="empty-state" id="emptyState">
+          <div class="big">📊</div>
+          <div>Enter your numbers and click <strong>Calculate projection</strong> to see balances over time.</div>
+        </div>
+        <div id="resultsContent" style="display:none">
+          <div class="note" id="resultsNote"></div>
+          <div class="kpi-grid" id="kpiGrid"></div>
+
+          <h3>Account balances over time</h3>
+          <div class="toggle-row">
+            <button class="secondary active" data-view="real">Today's dollars</button>
+            <button class="secondary" data-view="nominal">Nominal dollars</button>
+            <button class="secondary" data-view="byaccount">By account type</button>
+            <button class="secondary" data-view="bypartner">By partner</button>
+          </div>
+          <div class="chart-container tall"><canvas id="chartBalances"></canvas></div>
+
+          <h3>Annual income sources (nominal)</h3>
+          <div class="chart-container"><canvas id="chartIncome"></canvas></div>
+
+          <h3>Year-by-year detail</h3>
+          <div class="scroll-table">
+            <table id="annualTable"><thead></thead><tbody></tbody></table>
+          </div>
+
+          <details>
+            <summary>Assumptions and methodology</summary>
+            <div class="help" style="margin-top:8px;line-height:1.6">
+              <p><strong>Taxes:</strong> Federal brackets (2025) + provincial brackets for the chosen province. Basic personal amounts applied per person. The age amount credit ($9,028 federal) applies at age 65+. Pension income splitting (50/50 RRIF income) is applied automatically once both partners are 65+. Capital gains are taxed at 50% inclusion using a proportional cost-basis method.</p>
+              <p><strong>OAS clawback:</strong> 15% recovery tax on net income over $90,997 (2025); fully clawed back near $148,451. Modeled per person.</p>
+              <p><strong>CPP/OAS adjustments:</strong> CPP reduced 0.6%/mo before 65 and increased 0.7%/mo after (max 70). OAS reduced/increased 0.6%/mo from 65 (max age 70 for deferral; cannot start before 65).</p>
+              <p><strong>RRIF minimum withdrawals:</strong> RRSPs convert to RRIFs by end of age 71; minimum withdrawals begin at 72 using the official CRA factors.</p>
+              <p><strong>Withdrawal strategies:</strong> <em>Meltdown</em> — when retired and pre-CPP, drain RRSPs first while filling the lower brackets, then non-reg, then TFSA. After CPP/OAS start, prioritize non-reg + small RRSP melt to fit beneath OAS clawback, TFSA last. <em>Non-reg first</em> — spend non-reg, then RRSP, then TFSA. <em>Proportional</em> — pull from all three in proportion to balance.</p>
+              <p><strong>Limits:</strong> This is a planning tool, not personalized financial advice. It simplifies many real-world details (US dividends, attribution rules, spousal RRSPs, GIS, eligible dividend gross-up, deductions, RRSP overcontribution, capital gains inclusion changes, etc.).</p>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// =============================================================================
+// CONSTANTS - 2025 Canadian tax rules (approximate, simplified)
+// =============================================================================
+
+const FED_BRACKETS_2025 = [
+  { up: 57375,  rate: 0.15 },
+  { up: 114750, rate: 0.205 },
+  { up: 177882, rate: 0.26 },
+  { up: 253414, rate: 0.29 },
+  { up: Infinity, rate: 0.33 }
+];
+const FED_BPA = 16129; // 2025 basic personal amount (federal)
+const FED_AGE_AMOUNT = 9028; // age amount at 65+ (simplified, no clawback)
+
+const PROV_BRACKETS = {
+  ON: [
+    { up: 52886, rate: 0.0505 }, { up: 105775, rate: 0.0915 },
+    { up: 150000, rate: 0.1116 }, { up: 220000, rate: 0.1216 },
+    { up: Infinity, rate: 0.1316 }
+  ],
+  BC: [
+    { up: 49279, rate: 0.0506 }, { up: 98560, rate: 0.077 },
+    { up: 113158, rate: 0.105 }, { up: 137407, rate: 0.1229 },
+    { up: 186306, rate: 0.147 }, { up: 259829, rate: 0.168 },
+    { up: Infinity, rate: 0.205 }
+  ],
+  AB: [
+    { up: 60000, rate: 0.10 }, { up: 151234, rate: 0.10 },
+    { up: 181481, rate: 0.12 }, { up: 241974, rate: 0.13 },
+    { up: 362961, rate: 0.14 }, { up: Infinity, rate: 0.15 }
+  ],
+  QC: [
+    { up: 53255, rate: 0.14 }, { up: 106495, rate: 0.19 },
+    { up: 129590, rate: 0.24 }, { up: Infinity, rate: 0.2575 }
+  ],
+  MB: [
+    { up: 47000, rate: 0.108 }, { up: 100000, rate: 0.1275 },
+    { up: Infinity, rate: 0.174 }
+  ],
+  SK: [
+    { up: 53463, rate: 0.105 }, { up: 152750, rate: 0.125 },
+    { up: Infinity, rate: 0.145 }
+  ],
+  NS: [
+    { up: 30507, rate: 0.0879 }, { up: 61015, rate: 0.1495 },
+    { up: 95883, rate: 0.1667 }, { up: 154650, rate: 0.175 },
+    { up: Infinity, rate: 0.21 }
+  ],
+  NB: [
+    { up: 51306, rate: 0.094 }, { up: 102614, rate: 0.14 },
+    { up: 190060, rate: 0.16 }, { up: Infinity, rate: 0.195 }
+  ],
+  NL: [
+    { up: 44192, rate: 0.087 }, { up: 88382, rate: 0.145 },
+    { up: 157792, rate: 0.158 }, { up: 220910, rate: 0.178 },
+    { up: 282214, rate: 0.198 }, { up: 564429, rate: 0.208 },
+    { up: 1128858, rate: 0.213 }, { up: Infinity, rate: 0.218 }
+  ],
+  PE: [
+    { up: 33328, rate: 0.095 }, { up: 64656, rate: 0.1347 },
+    { up: 105000, rate: 0.166 }, { up: 140000, rate: 0.1762 },
+    { up: Infinity, rate: 0.19 }
+  ]
+};
+const PROV_BPA = { ON: 12747, BC: 12932, AB: 22323, QC: 18056, MB: 15969, SK: 18491, NS: 11744, NB: 13396, NL: 11067, PE: 14250 };
+
+// OAS clawback 2025
+const OAS_CLAWBACK_THRESHOLD = 90997;
+const OAS_CLAWBACK_FULL = 148451;
+const OAS_CLAWBACK_RATE = 0.15;
+
+// CRA RRIF minimum withdrawal factors
+const RRIF_MINIMUMS = {
+  72: 0.0540, 73: 0.0553, 74: 0.0567, 75: 0.0582, 76: 0.0598, 77: 0.0617,
+  78: 0.0636, 79: 0.0658, 80: 0.0682, 81: 0.0708, 82: 0.0738, 83: 0.0771,
+  84: 0.0808, 85: 0.0851, 86: 0.0899, 87: 0.0955, 88: 0.1021, 89: 0.1099,
+  90: 0.1192, 91: 0.1306, 92: 0.1449, 93: 0.1634, 94: 0.1879, 95: 0.20
+};
+
+// =============================================================================
+// TAX CALCULATION
+// =============================================================================
+
+function applyBrackets(income, brackets) {
+  if (income <= 0) return 0;
+  let tax = 0, last = 0;
+  for (const b of brackets) {
+    if (income <= b.up) { tax += (income - last) * b.rate; return tax; }
+    tax += (b.up - last) * b.rate; last = b.up;
+  }
+  return tax;
+}
+
+// Returns income tax owed for a person on `taxableIncome`, given age and province.
+// Pension splitting and OAS clawback handled by caller via taxableIncome.
+function personalTax(taxableIncome, age, province) {
+  if (taxableIncome <= 0) return 0;
+  const fedTaxGross = applyBrackets(taxableIncome, FED_BRACKETS_2025);
+  const provBrackets = PROV_BRACKETS[province];
+  const provTaxGross = applyBrackets(taxableIncome, provBrackets);
+  // Non-refundable credits at lowest bracket rate
+  const fedCredit = FED_BPA * FED_BRACKETS_2025[0].rate + (age >= 65 ? FED_AGE_AMOUNT * FED_BRACKETS_2025[0].rate : 0);
+  const provBpa = PROV_BPA[province] || 12000;
+  const provCredit = provBpa * provBrackets[0].rate;
+  const fedTax = Math.max(0, fedTaxGross - fedCredit);
+  const provTax = Math.max(0, provTaxGross - provCredit);
+  return fedTax + provTax;
+}
+
+function oasClawback(netIncome, oasReceived) {
+  if (netIncome <= OAS_CLAWBACK_THRESHOLD) return 0;
+  const clawback = Math.min(oasReceived, (netIncome - OAS_CLAWBACK_THRESHOLD) * OAS_CLAWBACK_RATE);
+  return clawback;
+}
+
+// Marginal tax rate at a given income level for a given province/age.
+function marginalRate(income, age, province) {
+  const fedRate = (FED_BRACKETS_2025.find(b => income <= b.up) || FED_BRACKETS_2025[FED_BRACKETS_2025.length-1]).rate;
+  const provBrackets = PROV_BRACKETS[province];
+  const provRate = (provBrackets.find(b => income <= b.up) || provBrackets[provBrackets.length-1]).rate;
+  return fedRate + provRate;
+}
+
+// =============================================================================
+// CPP/OAS ADJUSTMENT
+// =============================================================================
+
+function cppAdjustment(startAge) {
+  // 0.6%/month before 65 (max 36% reduction at 60), 0.7%/month after (max 42% increase at 70)
+  if (startAge < 65) return 1 - (65 - startAge) * 12 * 0.006;
+  if (startAge > 65) return 1 + (startAge - 65) * 12 * 0.007;
+  return 1.0;
+}
+function oasAdjustment(startAge) {
+  if (startAge < 65) return 1.0; // can't start before 65
+  if (startAge > 65) return 1 + (startAge - 65) * 12 * 0.006;
+  return 1.0;
+}
+
+// =============================================================================
+// SIMULATION
+// =============================================================================
+
+function getInputs() {
+  const num = id => parseFloat(document.getElementById(id).value) || 0;
+  const str = id => document.getElementById(id).value;
+  return {
+    province: str('province'),
+    spend: num('spend'),
+    inflation: num('inflation') / 100,
+    returnRate: num('returnRate') / 100,
+    otherIncome: num('otherIncome'),
+    otherInflate: str('otherInflate') === '1',
+    strategy: str('strategy'),
+    p1: {
+      name: str('p1_name'), age: num('p1_age'), retire: num('p1_retire'), death: num('p1_death'),
+      salary: num('p1_salary'), sgrowth: num('p1_sgrowth')/100,
+      rrsp: num('p1_rrsp'), tfsa: num('p1_tfsa'), nonreg: num('p1_nonreg'), acb: num('p1_acb'),
+      rrspContrib: num('p1_rrspContrib'), tfsaContrib: num('p1_tfsaContrib'),
+      cpp: num('p1_cpp'), oas: num('p1_oas'),
+      cppAge: num('p1_cppAge'), oasAge: num('p1_oasAge')
+    },
+    p2: {
+      name: str('p2_name'), age: num('p2_age'), retire: num('p2_retire'), death: num('p2_death'),
+      salary: num('p2_salary'), sgrowth: num('p2_sgrowth')/100,
+      rrsp: num('p2_rrsp'), tfsa: num('p2_tfsa'), nonreg: num('p2_nonreg'), acb: num('p2_acb'),
+      rrspContrib: num('p2_rrspContrib'), tfsaContrib: num('p2_tfsaContrib'),
+      cpp: num('p2_cpp'), oas: num('p2_oas'),
+      cppAge: num('p2_cppAge'), oasAge: num('p2_oasAge')
+    }
+  };
+}
+
+// Given a desired NET (after-tax) amount and a withdrawal mix function,
+// iteratively solve for gross withdrawal amounts.
+// `mix(gross)` returns { taxableP1, taxableP2, withdrawnNet, breakdown } describing
+// what's pulled from each account when grossing up. We use iterative approximation
+// since taxes depend on income mix.
+
+function simulate(inputs) {
+  const startYear = 2025;
+  const maxYears = Math.max(inputs.p1.death - inputs.p1.age, inputs.p2.death - inputs.p2.age) + 1;
+  const years = [];
+
+  // State
+  let p1 = {
+    age: inputs.p1.age, salary: inputs.p1.salary,
+    rrsp: inputs.p1.rrsp, tfsa: inputs.p1.tfsa, nonreg: inputs.p1.nonreg, acb: inputs.p1.acb,
+    alive: true
+  };
+  let p2 = {
+    age: inputs.p2.age, salary: inputs.p2.salary,
+    rrsp: inputs.p2.rrsp, tfsa: inputs.p2.tfsa, nonreg: inputs.p2.nonreg, acb: inputs.p2.acb,
+    alive: true
+  };
+
+  const cppP1Annual = inputs.p1.cpp * cppAdjustment(inputs.p1.cppAge);
+  const cppP2Annual = inputs.p2.cpp * cppAdjustment(inputs.p2.cppAge);
+  const oasP1Annual = inputs.p1.oas * oasAdjustment(inputs.p1.oasAge);
+  const oasP2Annual = inputs.p2.oas * oasAdjustment(inputs.p2.oasAge);
+
+  for (let y = 0; y < maxYears; y++) {
+    const calYear = startYear + y;
+    const inflFactor = Math.pow(1 + inputs.inflation, y);
+    p1.alive = p1.age <= inputs.p1.death;
+    p2.alive = p2.age <= inputs.p2.death;
+    if (!p1.alive && !p2.alive) break;
+
+    const p1Working = p1.alive && p1.age < inputs.p1.retire;
+    const p2Working = p2.alive && p2.age < inputs.p2.retire;
+
+    // Income sources (gross)
+    const p1Salary = p1Working ? inputs.p1.salary * Math.pow(1 + inputs.p1.sgrowth, y) : 0;
+    const p2Salary = p2Working ? inputs.p2.salary * Math.pow(1 + inputs.p2.sgrowth, y) : 0;
+
+    // CPP/OAS only after start age, inflated since 2025
+    const p1Cpp = (p1.alive && p1.age >= inputs.p1.cppAge) ? cppP1Annual * inflFactor : 0;
+    const p2Cpp = (p2.alive && p2.age >= inputs.p2.cppAge) ? cppP2Annual * inflFactor : 0;
+    const p1Oas = (p1.alive && p1.age >= inputs.p1.oasAge) ? oasP1Annual * inflFactor : 0;
+    const p2Oas = (p2.alive && p2.age >= inputs.p2.oasAge) ? oasP2Annual * inflFactor : 0;
+    const otherInc = inputs.otherIncome * (inputs.otherInflate ? inflFactor : 1);
+
+    // Annual spending (inflation-adjusted)
+    const spending = inputs.spend * inflFactor;
+
+    // Contributions while working (deductible RRSP reduces taxable income)
+    const p1RrspContrib = p1Working ? Math.min(inputs.p1.rrspContrib, p1Salary * 0.18) : 0;
+    const p2RrspContrib = p2Working ? Math.min(inputs.p2.rrspContrib, p2Salary * 0.18) : 0;
+    const p1TfsaContrib = p1Working ? inputs.p1.tfsaContrib : 0;
+    const p2TfsaContrib = p2Working ? inputs.p2.tfsaContrib : 0;
+
+    // RRIF mandatory minimum withdrawals (age 72+)
+    const p1RrifMin = (p1.alive && p1.age >= 72 && p1.rrsp > 0) ? p1.rrsp * (RRIF_MINIMUMS[Math.min(p1.age, 95)] || 0.20) : 0;
+    const p2RrifMin = (p2.alive && p2.age >= 72 && p2.rrsp > 0) ? p2.rrsp * (RRIF_MINIMUMS[Math.min(p2.age, 95)] || 0.20) : 0;
+
+    // Apply RRIF minimums first (reduce RRSP, add to RRSP withdrawals counted as taxable)
+    p1.rrsp -= p1RrifMin;
+    p2.rrsp -= p2RrifMin;
+
+    // Total non-withdrawal income for each partner (taxable except TFSA)
+    let p1TaxableBase = p1Salary + p1Cpp + p1Oas + p1RrifMin - p1RrspContrib;
+    let p2TaxableBase = p2Salary + p2Cpp + p2Oas + p2RrifMin - p2RrspContrib;
+
+    // Other income (assume household: split for tax efficiency to lower earner)
+    if (p1.alive && p2.alive) {
+      p1TaxableBase += otherInc * 0.5; p2TaxableBase += otherInc * 0.5;
+    } else if (p1.alive) p1TaxableBase += otherInc;
+    else if (p2.alive) p2TaxableBase += otherInc;
+
+    // Initial cash flow: net after tax on base income
+    let p1NonRegWithdrawnGain = 0;
+    let p2NonRegWithdrawnGain = 0;
+
+    // Compute net (after-tax) income from base sources
+    function netAfterTax(taxIncP1, taxIncP2) {
+      let p1Net = 0, p2Net = 0;
+      if (p1.alive) {
+        let tax = personalTax(taxIncP1, p1.age, inputs.province);
+        if (p1.age >= inputs.p1.oasAge) tax += oasClawback(taxIncP1, p1Oas);
+        p1Net = taxIncP1 - tax;
+      }
+      if (p2.alive) {
+        let tax = personalTax(taxIncP2, p2.age, inputs.province);
+        if (p2.age >= inputs.p2.oasAge) tax += oasClawback(taxIncP2, p2Oas);
+        p2Net = taxIncP2 - tax;
+      }
+      return { p1Net, p2Net, total: p1Net + p2Net };
+    }
+
+    const baseNet = netAfterTax(p1TaxableBase, p2TaxableBase);
+    // Effective cash need = spending + TFSA contributions (which come out of after-tax income)
+    const tfsaCashOut = p1TfsaContrib + p2TfsaContrib;
+    const targetNet = spending + tfsaCashOut;
+
+    // Surplus during working years -> add to non-reg (taxable account)
+    // Deficit during retirement -> withdraw
+    let p1Withdraw = { rrsp: 0, tfsa: 0, nonreg: 0 };
+    let p2Withdraw = { rrsp: 0, tfsa: 0, nonreg: 0 };
+    let surplusToNonReg = 0;
+
+    let netGap = targetNet - baseNet.total;
+
+    if (netGap < 0) {
+      // Surplus: save excess into non-reg (after contributing to RRSP/TFSA already)
+      surplusToNonReg = -netGap;
+    } else if (netGap > 0) {
+      // Need to withdraw. Use strategy.
+      const remaining = withdrawFor(netGap, inputs, p1, p2,
+        p1TaxableBase, p2TaxableBase,
+        p1Oas, p2Oas, baseNet);
+      p1Withdraw = remaining.p1;
+      p2Withdraw = remaining.p2;
+      p1NonRegWithdrawnGain = remaining.p1Gain;
+      p2NonRegWithdrawnGain = remaining.p2Gain;
+    }
+
+    // Apply withdrawals
+    p1.rrsp = Math.max(0, p1.rrsp - p1Withdraw.rrsp);
+    p2.rrsp = Math.max(0, p2.rrsp - p2Withdraw.rrsp);
+    p1.tfsa = Math.max(0, p1.tfsa - p1Withdraw.tfsa);
+    p2.tfsa = Math.max(0, p2.tfsa - p2Withdraw.tfsa);
+    // Non-reg: reduce balance and proportionally reduce ACB
+    if (p1Withdraw.nonreg > 0 && p1.nonreg > 0) {
+      const proportion = Math.min(1, p1Withdraw.nonreg / p1.nonreg);
+      p1.acb = Math.max(0, p1.acb * (1 - proportion));
+      p1.nonreg = Math.max(0, p1.nonreg - p1Withdraw.nonreg);
+    }
+    if (p2Withdraw.nonreg > 0 && p2.nonreg > 0) {
+      const proportion = Math.min(1, p2Withdraw.nonreg / p2.nonreg);
+      p2.acb = Math.max(0, p2.acb * (1 - proportion));
+      p2.nonreg = Math.max(0, p2.nonreg - p2Withdraw.nonreg);
+    }
+
+    // Contributions (during work years)
+    p1.rrsp += p1RrspContrib; p2.rrsp += p2RrspContrib;
+    p1.tfsa += p1TfsaContrib; p2.tfsa += p2TfsaContrib;
+
+    // Surplus to non-reg (split if both working)
+    if (surplusToNonReg > 0) {
+      if (p1.alive && p2.alive) {
+        const s1 = surplusToNonReg * 0.5; const s2 = surplusToNonReg * 0.5;
+        p1.nonreg += s1; p1.acb += s1;
+        p2.nonreg += s2; p2.acb += s2;
+      } else if (p1.alive) { p1.nonreg += surplusToNonReg; p1.acb += surplusToNonReg; }
+      else if (p2.alive) { p2.nonreg += surplusToNonReg; p2.acb += surplusToNonReg; }
+    }
+
+    // Growth at end of year
+    p1.rrsp *= (1 + inputs.returnRate);
+    p2.rrsp *= (1 + inputs.returnRate);
+    p1.tfsa *= (1 + inputs.returnRate);
+    p2.tfsa *= (1 + inputs.returnRate);
+    p1.nonreg *= (1 + inputs.returnRate);
+    p2.nonreg *= (1 + inputs.returnRate);
+
+    // Compute final taxable income figures with withdrawals included
+    const p1TaxableFinal = p1TaxableBase + p1Withdraw.rrsp + p1NonRegWithdrawnGain * 0.5;
+    const p2TaxableFinal = p2TaxableBase + p2Withdraw.rrsp + p2NonRegWithdrawnGain * 0.5;
+    let p1Tax = personalTax(p1TaxableFinal, p1.age, inputs.province);
+    let p2Tax = personalTax(p2TaxableFinal, p2.age, inputs.province);
+    let p1Clawback = (p1.alive && p1.age >= inputs.p1.oasAge) ? oasClawback(p1TaxableFinal, p1Oas) : 0;
+    let p2Clawback = (p2.alive && p2.age >= inputs.p2.oasAge) ? oasClawback(p2TaxableFinal, p2Oas) : 0;
+    const totalTax = p1Tax + p2Tax + p1Clawback + p2Clawback;
+
+    years.push({
+      year: calYear,
+      p1Age: p1.age, p2Age: p2.age,
+      p1Alive: p1.alive, p2Alive: p2.alive,
+      p1Working, p2Working,
+      p1Salary, p2Salary,
+      p1Cpp, p2Cpp, p1Oas, p2Oas, otherInc,
+      spending,
+      p1RrifMin, p2RrifMin,
+      p1Withdraw, p2Withdraw,
+      p1Tax, p2Tax, p1Clawback, p2Clawback, totalTax,
+      surplusToNonReg,
+      p1Rrsp: p1.rrsp, p2Rrsp: p2.rrsp,
+      p1Tfsa: p1.tfsa, p2Tfsa: p2.tfsa,
+      p1NonReg: p1.nonreg, p2NonReg: p2.nonreg,
+      p1Acb: p1.acb, p2Acb: p2.acb,
+      totalAssets: p1.rrsp + p2.rrsp + p1.tfsa + p2.tfsa + p1.nonreg + p2.nonreg,
+      inflFactor
+    });
+
+    // Age both partners
+    p1.age++;
+    p2.age++;
+  }
+  return years;
+}
+
+// Determine withdrawals to satisfy a net gap, accounting for taxes iteratively.
+function withdrawFor(netGap, inputs, p1, p2, p1Base, p2Base, p1Oas, p2Oas, baseNet) {
+  // Strategy-aware allocation. We iterate up to ~6 times: estimate gross, compute tax, adjust.
+  const strategy = inputs.strategy;
+  let p1W = { rrsp: 0, tfsa: 0, nonreg: 0 };
+  let p2W = { rrsp: 0, tfsa: 0, nonreg: 0 };
+  let p1Gain = 0, p2Gain = 0;
+
+  // Helper: net change in net-income from a given withdrawal mix (relative to baseNet).
+  function compute(p1W, p2W) {
+    let p1Gain = 0, p2Gain = 0;
+    if (p1W.nonreg > 0 && p1.nonreg > 0) {
+      const ratio = Math.min(1, p1W.nonreg / p1.nonreg);
+      p1Gain = (p1.nonreg - p1.acb) * ratio; // unrealized gain realized
+    }
+    if (p2W.nonreg > 0 && p2.nonreg > 0) {
+      const ratio = Math.min(1, p2W.nonreg / p2.nonreg);
+      p2Gain = (p2.nonreg - p2.acb) * ratio;
+    }
+    const p1TaxInc = p1Base + p1W.rrsp + p1Gain * 0.5;
+    const p2TaxInc = p2Base + p2W.rrsp + p2Gain * 0.5;
+    let p1Tax = personalTax(p1TaxInc, p1.age, inputs.province);
+    let p2Tax = personalTax(p2TaxInc, p2.age, inputs.province);
+    if (p1.age >= inputs.p1.oasAge) p1Tax += oasClawback(p1TaxInc, p1Oas);
+    if (p2.age >= inputs.p2.oasAge) p2Tax += oasClawback(p2TaxInc, p2Oas);
+    const totalTax = p1Tax + p2Tax;
+    const gross = (p1W.rrsp + p2W.rrsp) + (p1W.nonreg + p2W.nonreg) + (p1W.tfsa + p2W.tfsa) + p1Base + p2Base;
+    const net = gross - totalTax;
+    return { p1Gain, p2Gain, net, totalTax, p1TaxInc, p2TaxInc };
+  }
+
+  // Tax-efficient room: try to fill RRSP up to first bracket on each partner
+  const FIRST_BRACKET = FED_BRACKETS_2025[0].up; // 57,375
+  const SECOND_BRACKET = FED_BRACKETS_2025[1].up;
+  const inflFactor = 1; // ignore for bracket adjustment to keep simple
+
+  for (let iter = 0; iter < 8; iter++) {
+    // Reset desired withdrawal allocations based on strategy + current state
+    p1W = { rrsp: 0, tfsa: 0, nonreg: 0 };
+    p2W = { rrsp: 0, tfsa: 0, nonreg: 0 };
+    const initial = compute(p1W, p2W);
+    let needGross = (netGap + initial.totalTax) - (initial.net - baseNet.total);
+    // Hmm careful; let's recompute simpler: target gross such that gross - tax(gross) = baseNet.total + netGap
+    // We'll iteratively try; build allocation, compute net, scale.
+
+    function buildAlloc(grossNeed) {
+      const a = { p1: { rrsp:0, tfsa:0, nonreg:0 }, p2: { rrsp:0, tfsa:0, nonreg:0 } };
+      let need = grossNeed;
+      // Available balances
+      const avail = {
+        p1Rrsp: p1.rrsp, p2Rrsp: p2.rrsp,
+        p1Nonreg: p1.nonreg, p2Nonreg: p2.nonreg,
+        p1Tfsa: p1.tfsa, p2Tfsa: p2.tfsa
+      };
+      const preCpp1 = p1.age < inputs.p1.cppAge;
+      const preCpp2 = p2.age < inputs.p2.cppAge;
+      const preOas1 = p1.age < inputs.p1.oasAge;
+      const preOas2 = p2.age < inputs.p2.oasAge;
+
+      function pull(key, max, partner, account) {
+        if (need <= 0) return;
+        const take = Math.min(max, need, avail[key]);
+        if (take > 0) { a[partner][account] += take; avail[key] -= take; need -= take; }
+      }
+
+      if (strategy === 'meltdown') {
+        // 1) Fill RRSP up to comfortable bracket (first $50k each) while pre-CPP/OAS
+        // Calculate remaining bracket room for each partner
+        const p1Room = preCpp1 ? Math.max(0, FIRST_BRACKET - p1Base) : Math.max(0, OAS_CLAWBACK_THRESHOLD * 0.7 - p1Base);
+        const p2Room = preCpp2 ? Math.max(0, FIRST_BRACKET - p2Base) : Math.max(0, OAS_CLAWBACK_THRESHOLD * 0.7 - p2Base);
+        pull('p1Rrsp', p1Room, 'p1', 'rrsp');
+        pull('p2Rrsp', p2Room, 'p2', 'rrsp');
+        // 2) Non-reg (capital gains taxed at 50%, more efficient than RRSP at higher brackets)
+        // Split based on balances
+        const totalNonReg = avail.p1Nonreg + avail.p2Nonreg;
+        if (totalNonReg > 0 && need > 0) {
+          const p1Frac = avail.p1Nonreg / totalNonReg;
+          pull('p1Nonreg', need * p1Frac, 'p1', 'nonreg');
+          pull('p2Nonreg', need, 'p2', 'nonreg');
+          // any remaining
+          pull('p1Nonreg', need, 'p1', 'nonreg');
+        }
+        // 3) More RRSP if needed (will push into higher brackets, but unavoidable)
+        pull('p1Rrsp', need, 'p1', 'rrsp');
+        pull('p2Rrsp', need, 'p2', 'rrsp');
+        // 4) TFSA last
+        pull('p1Tfsa', need, 'p1', 'tfsa');
+        pull('p2Tfsa', need, 'p2', 'tfsa');
+      } else if (strategy === 'nonreg-first') {
+        const totalNonReg = avail.p1Nonreg + avail.p2Nonreg;
+        if (totalNonReg > 0) {
+          const p1Frac = avail.p1Nonreg / totalNonReg;
+          pull('p1Nonreg', need * p1Frac, 'p1', 'nonreg');
+          pull('p2Nonreg', need, 'p2', 'nonreg');
+          pull('p1Nonreg', need, 'p1', 'nonreg');
+        }
+        pull('p1Rrsp', need / 2, 'p1', 'rrsp');
+        pull('p2Rrsp', need, 'p2', 'rrsp');
+        pull('p1Rrsp', need, 'p1', 'rrsp');
+        pull('p1Tfsa', need / 2, 'p1', 'tfsa');
+        pull('p2Tfsa', need, 'p2', 'tfsa');
+        pull('p1Tfsa', need, 'p1', 'tfsa');
+      } else {
+        // proportional
+        const total = avail.p1Rrsp + avail.p2Rrsp + avail.p1Nonreg + avail.p2Nonreg + avail.p1Tfsa + avail.p2Tfsa;
+        if (total > 0) {
+          const factor = Math.min(1, grossNeed / total);
+          a.p1.rrsp = avail.p1Rrsp * factor;
+          a.p2.rrsp = avail.p2Rrsp * factor;
+          a.p1.nonreg = avail.p1Nonreg * factor;
+          a.p2.nonreg = avail.p2Nonreg * factor;
+          a.p1.tfsa = avail.p1Tfsa * factor;
+          a.p2.tfsa = avail.p2Tfsa * factor;
+        }
+      }
+      return a;
+    }
+
+    // Estimate gross needed: start with netGap + estimated tax
+    // Iteratively refine
+    let grossEstimate = netGap;
+    for (let i = 0; i < 6; i++) {
+      const alloc = buildAlloc(grossEstimate);
+      const res = compute(alloc.p1, alloc.p2);
+      const achievedNet = res.net - baseNet.total; // net produced over base
+      const error = netGap - achievedNet;
+      if (Math.abs(error) < 1) {
+        p1W = alloc.p1; p2W = alloc.p2;
+        return { p1: p1W, p2: p2W, p1Gain: res.p1Gain, p2Gain: res.p2Gain };
+      }
+      grossEstimate += error * 1.1;
+    }
+    const alloc = buildAlloc(grossEstimate);
+    const res = compute(alloc.p1, alloc.p2);
+    return { p1: alloc.p1, p2: alloc.p2, p1Gain: res.p1Gain, p2Gain: res.p2Gain };
+  }
+  return { p1: p1W, p2: p2W, p1Gain: 0, p2Gain: 0 };
+}
+
+// =============================================================================
+// RENDERING
+// =============================================================================
+
+let chartBalances = null, chartIncome = null;
+let lastResults = null, currentView = 'real';
+
+function fmt(n, decimals = 0) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return '$' + Math.round(n).toLocaleString('en-CA');
+}
+function fmtShort(n) {
+  if (n === null || isNaN(n)) return '—';
+  const abs = Math.abs(n);
+  if (abs >= 1e6) return '$' + (n/1e6).toFixed(1) + 'M';
+  if (abs >= 1e3) return '$' + (n/1e3).toFixed(0) + 'k';
+  return '$' + n.toFixed(0);
+}
+
+function render(results, inputs) {
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('resultsContent').style.display = '';
+  lastResults = { results, inputs };
+  renderKpis(results, inputs);
+  renderCharts(results, inputs);
+  renderTable(results, inputs);
+  renderNote(results, inputs);
+}
+
+function renderNote(results, inputs) {
+  const note = document.getElementById('resultsNote');
+  const last = results[results.length - 1];
+  const depleted = results.find(y => y.totalAssets < 1000);
+  if (depleted && depleted !== last) {
+    const age1 = depleted.p1Age, age2 = depleted.p2Age;
+    note.style.display = '';
+    note.style.background = '#fee2e2';
+    note.style.borderColor = '#fca5a5';
+    note.style.color = '#991b1b';
+    note.innerHTML = `<strong>⚠ Plan does not last:</strong> Portfolio depleted in ${depleted.year} (ages ${age1}/${age2}). Consider higher savings, lower spend, or later retirement.`;
+  } else if (last.totalAssets > inputs.spend * 25) {
+    note.style.display = '';
+    note.style.background = '#dcfce7';
+    note.style.borderColor = '#86efac';
+    note.style.color = '#166534';
+    note.innerHTML = `<strong>✓ Plan succeeds with margin:</strong> Final portfolio of ${fmt(last.totalAssets)} (${fmt(last.totalAssets / last.inflFactor)} in today's dollars).`;
+  } else {
+    note.style.display = '';
+    note.style.background = '#fffbeb';
+    note.style.borderColor = '#fde68a';
+    note.style.color = '#78350f';
+    note.innerHTML = `<strong>Plan succeeds:</strong> Final portfolio of ${fmt(last.totalAssets)} (${fmt(last.totalAssets / last.inflFactor)} in today's dollars).`;
+  }
+}
+
+function renderKpis(results, inputs) {
+  // Find retirement year (when both not working)
+  const retireYr = results.find(y => !y.p1Working && !y.p2Working);
+  const today = results[0];
+  const startTotal = today.totalAssets - (today.surplusToNonReg || 0); // approximate
+
+  // FIRE number: 25x annual spend
+  const fireNumber = inputs.spend * 25;
+  const totalToday = inputs.p1.rrsp + inputs.p1.tfsa + inputs.p1.nonreg + inputs.p2.rrsp + inputs.p2.tfsa + inputs.p2.nonreg;
+  const fiPct = totalToday / fireNumber;
+
+  const lastYear = results[results.length - 1];
+  const peakYear = results.reduce((m, y) => y.totalAssets > m.totalAssets ? y : m, results[0]);
+  const totalTax = results.reduce((s, y) => s + y.totalTax, 0);
+
+  const kpis = [
+    { label: 'FIRE number (25× spend)', value: fmt(fireNumber), sub: `Currently ${(fiPct*100).toFixed(0)}% there` },
+    { label: 'Total portfolio today', value: fmt(totalToday), sub: 'across both partners' },
+    { label: 'Years to projected retirement', value: Math.min(inputs.p1.retire - inputs.p1.age, inputs.p2.retire - inputs.p2.age), sub: 'until first retires' },
+    { label: 'Peak portfolio', value: fmt(peakYear.totalAssets), sub: `${peakYear.year} (ages ${peakYear.p1Age}/${peakYear.p2Age})` },
+    { label: 'Final portfolio', value: fmt(lastYear.totalAssets), sub: 'end of plan', class: lastYear.totalAssets > 0 ? 'success' : 'danger' },
+    { label: 'Total tax paid (nominal)', value: fmt(totalTax), sub: 'over full plan' }
+  ];
+  document.getElementById('kpiGrid').innerHTML = kpis.map(k =>
+    `<div class="kpi ${k.class||''}"><div class="label">${k.label}</div><div class="value">${k.value}</div><div class="sub">${k.sub}</div></div>`
+  ).join('');
+}
+
+function renderCharts(results, inputs) {
+  const labels = results.map(y => y.year);
+
+  // Determine values based on view
+  function adjust(val, idx) {
+    return currentView === 'real' ? val / results[idx].inflFactor : val;
+  }
+
+  if (chartBalances) chartBalances.destroy();
+  let datasets;
+  if (currentView === 'byaccount') {
+    datasets = [
+      { label: 'RRSP (P1+P2)', data: results.map((y,i) => adjust(y.p1Rrsp + y.p2Rrsp, i)), backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
+      { label: 'TFSA (P1+P2)', data: results.map((y,i) => adjust(y.p1Tfsa + y.p2Tfsa, i)), backgroundColor: '#10b981', borderColor: '#10b981' },
+      { label: 'Non-registered (P1+P2)', data: results.map((y,i) => adjust(y.p1NonReg + y.p2NonReg, i)), backgroundColor: '#f59e0b', borderColor: '#f59e0b' }
+    ];
+  } else if (currentView === 'bypartner') {
+    const n1 = document.getElementById('p1_name').value, n2 = document.getElementById('p2_name').value;
+    datasets = [
+      { label: n1, data: results.map((y,i) => adjust(y.p1Rrsp + y.p1Tfsa + y.p1NonReg, i)), backgroundColor: '#1d4ed8', borderColor: '#1d4ed8' },
+      { label: n2, data: results.map((y,i) => adjust(y.p2Rrsp + y.p2Tfsa + y.p2NonReg, i)), backgroundColor: '#be185d', borderColor: '#be185d' }
+    ];
+  } else {
+    datasets = [
+      { label: 'RRSP', data: results.map((y,i) => adjust(y.p1Rrsp + y.p2Rrsp, i)), backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
+      { label: 'TFSA', data: results.map((y,i) => adjust(y.p1Tfsa + y.p2Tfsa, i)), backgroundColor: '#10b981', borderColor: '#10b981' },
+      { label: 'Non-registered', data: results.map((y,i) => adjust(y.p1NonReg + y.p2NonReg, i)), backgroundColor: '#f59e0b', borderColor: '#f59e0b' }
+    ];
+  }
+
+  chartBalances = new Chart(document.getElementById('chartBalances'), {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            title: ctx => {
+              const i = ctx[0].dataIndex;
+              return `${results[i].year} — ages ${results[i].p1Age}/${results[i].p2Age}`;
+            },
+            label: ctx => ctx.dataset.label + ': ' + fmt(ctx.parsed.y),
+            footer: items => {
+              const i = items[0].dataIndex;
+              const total = items.reduce((s, it) => s + it.parsed.y, 0);
+              return 'Total: ' + fmt(total);
+            }
+          }
+        }
+      },
+      scales: {
+        x: { stacked: true, ticks: { font: { size: 10 }, maxTicksLimit: 20 } },
+        y: { stacked: true, ticks: { callback: v => fmtShort(v), font: { size: 11 } } }
+      }
+    }
+  });
+
+  // Income chart
+  if (chartIncome) chartIncome.destroy();
+  const incData = [
+    { label: 'Salaries', data: results.map(y => y.p1Salary + y.p2Salary), backgroundColor: '#6366f1' },
+    { label: 'CPP', data: results.map(y => y.p1Cpp + y.p2Cpp), backgroundColor: '#0891b2' },
+    { label: 'OAS', data: results.map(y => y.p1Oas + y.p2Oas), backgroundColor: '#059669' },
+    { label: 'Other income', data: results.map(y => y.otherInc), backgroundColor: '#84cc16' },
+    { label: 'RRIF/RRSP withdrawals', data: results.map(y => y.p1Withdraw.rrsp + y.p2Withdraw.rrsp + y.p1RrifMin + y.p2RrifMin), backgroundColor: '#3b82f6' },
+    { label: 'Non-reg withdrawals', data: results.map(y => y.p1Withdraw.nonreg + y.p2Withdraw.nonreg), backgroundColor: '#f59e0b' },
+    { label: 'TFSA withdrawals', data: results.map(y => y.p1Withdraw.tfsa + y.p2Withdraw.tfsa), backgroundColor: '#10b981' }
+  ];
+  chartIncome = new Chart(document.getElementById('chartIncome'), {
+    type: 'bar',
+    data: { labels, datasets: incData },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            title: ctx => `${results[ctx[0].dataIndex].year} — ages ${results[ctx[0].dataIndex].p1Age}/${results[ctx[0].dataIndex].p2Age}`,
+            label: ctx => ctx.dataset.label + ': ' + fmt(ctx.parsed.y)
+          }
+        }
+      },
+      scales: {
+        x: { stacked: true, ticks: { font: { size: 10 }, maxTicksLimit: 20 } },
+        y: { stacked: true, ticks: { callback: v => fmtShort(v), font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function renderTable(results, inputs) {
+  const headers = ['Year', 'Ages', 'Spend', 'Salary', 'CPP/OAS', 'RRSP w/d', 'Non-reg w/d', 'TFSA w/d', 'Tax', 'RRSP', 'TFSA', 'Non-reg', 'Total'];
+  const head = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+  document.querySelector('#annualTable thead').innerHTML = head;
+  const body = results.map(y => {
+    const isReal = currentView === 'real';
+    const div = isReal ? y.inflFactor : 1;
+    const total = (y.p1Rrsp + y.p2Rrsp + y.p1Tfsa + y.p2Tfsa + y.p1NonReg + y.p2NonReg) / div;
+    const isDepleted = total < 1000;
+    return `<tr>
+      <td>${y.year}</td>
+      <td>${y.p1Age}/${y.p2Age}</td>
+      <td>${fmt(y.spending/div)}</td>
+      <td>${fmt((y.p1Salary + y.p2Salary)/div)}</td>
+      <td>${fmt((y.p1Cpp + y.p2Cpp + y.p1Oas + y.p2Oas)/div)}</td>
+      <td>${fmt((y.p1Withdraw.rrsp + y.p2Withdraw.rrsp + y.p1RrifMin + y.p2RrifMin)/div)}</td>
+      <td>${fmt((y.p1Withdraw.nonreg + y.p2Withdraw.nonreg)/div)}</td>
+      <td>${fmt((y.p1Withdraw.tfsa + y.p2Withdraw.tfsa)/div)}</td>
+      <td>${fmt(y.totalTax/div)}</td>
+      <td>${fmt((y.p1Rrsp + y.p2Rrsp)/div)}</td>
+      <td>${fmt((y.p1Tfsa + y.p2Tfsa)/div)}</td>
+      <td>${fmt((y.p1NonReg + y.p2NonReg)/div)}</td>
+      <td class="${isDepleted ? 'depleted' : ''}" style="font-weight:600">${fmt(total)}</td>
+    </tr>`;
+  }).join('');
+  document.querySelector('#annualTable tbody').innerHTML = body;
+}
+
+// =============================================================================
+// EVENTS
+// =============================================================================
+
+document.getElementById('calcBtn').addEventListener('click', () => {
+  const inputs = getInputs();
+  const results = simulate(inputs);
+  render(results, inputs);
+});
+
+document.querySelectorAll('.toggle-row button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.toggle-row button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentView = btn.dataset.view;
+    if (lastResults) {
+      renderCharts(lastResults.results, lastResults.inputs);
+      renderTable(lastResults.results, lastResults.inputs);
+    }
+  });
+});
+
+// Run on load with default values
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('calcBtn').click();
+});
+</script>
+</body>
+</html>
